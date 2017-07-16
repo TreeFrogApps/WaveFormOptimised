@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">WaveForm Optimised</string>
+    <string name="title_activity_wave">WaveActivity</string>
+</resources>
