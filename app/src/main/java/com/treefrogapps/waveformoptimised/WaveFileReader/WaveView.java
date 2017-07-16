@@ -3,20 +3,17 @@ package com.treefrogapps.waveformoptimised.WaveFileReader;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.CornerPathEffect;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
-
-import static android.graphics.Color.BLUE;
-import static android.graphics.Paint.Cap.ROUND;
 
 
 @SuppressLint("ViewConstructor")
@@ -27,7 +24,7 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
     private Disposable disposable;
     private int xOffset;
     private Paint paint;
-    private List<Float> wavePoints = new ArrayList<>();
+    private Path path;
 
     public WaveView(Context context, @Nullable WaveFile waveFile) {
         super(context);
@@ -37,6 +34,7 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
         getHolder().addCallback(this);
         setWillNotDraw(false);
         paint = new Paint();
+        path = new Path();
     }
 
     @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
@@ -61,6 +59,7 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
         if (wavefile != null) {
             final Canvas canvas = holder.lockCanvas(null);
             setPaintParams(paint);
+            Log.e(getClass().getSimpleName(), " " + canvas.getWidth() + " , " + canvas.getHeight());
             disposable = wavefile.getAmplitudes(canvas.getWidth()).observeOn(AndroidSchedulers.mainThread())
                     .subscribe(val -> onNext(val, canvas), this::onError, () -> onComplete(canvas));
         }
@@ -68,7 +67,7 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
 
     private void onNext(Float val, Canvas canvas) {
         final float amplitude = normaliseAmplitude(val, canvas.getHeight());
-        wavePoints.addAll(addLinePoint(wavePoints, amplitude, canvas, xOffset));
+        addLinePoint(path, amplitude, canvas.getHeight(), xOffset);
         xOffset++;
     }
 
@@ -78,18 +77,9 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
 
     private void onComplete(Canvas canvas) {
         Log.i(getClass().getSimpleName(), "Drawing complete");
-        canvas.drawLines(getFloatPoints(wavePoints), paint);
+        canvas.drawPath(path, paint);
         holder.unlockCanvasAndPost(canvas);
         xOffset = 0;
-        wavePoints.clear();
-    }
-
-    private float[] getFloatPoints(List<Float> wavePoints) {
-        final float[] points = new float[wavePoints.size()];
-        for (int i = 0; i < wavePoints.size(); i++) {
-            points[i] = wavePoints.get(i);
-        }
-        return points;
     }
 
     private float normaliseAmplitude(Float val, int y) {
@@ -97,22 +87,20 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void setPaintParams(Paint paint) {
-        paint.setColor(BLUE);
-        paint.setAntiAlias(false);
-        paint.setStrokeWidth(2.0F);
-        paint.setStrokeCap(ROUND);
+        paint.setColor(Color.BLUE);
+        paint.setStrokeWidth(2.0f);
+        paint.setDither(true);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeJoin(Paint.Join.ROUND);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setPathEffect(new CornerPathEffect(10));
+        paint.setAntiAlias(true);
     }
 
-    private List<Float> addLinePoint(List<Float> wavePoints, float amplitude, Canvas canvas, int xOffset) {
-        final ArrayList<Float> newLine = new ArrayList<>();
-        if (wavePoints.size() > 2) {
-            newLine.add(wavePoints.get(wavePoints.size() - 2));
-            newLine.add(wavePoints.get(wavePoints.size() - 1));
-        }
-        final float yOffset = (canvas.getHeight() / 2);
-        newLine.add((float) xOffset);
-        newLine.add(yOffset - amplitude);
-        return newLine;
+    private void addLinePoint(Path path, float amplitude, int height, int xOffset) {
+        final float yOffset = (height / 2);
+        path.lineTo((float) xOffset, yOffset - amplitude);
+        path.moveTo((float) xOffset, yOffset - amplitude);
     }
 
 }

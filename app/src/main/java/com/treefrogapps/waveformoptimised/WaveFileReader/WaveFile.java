@@ -88,7 +88,7 @@ public class WaveFile {
             final byte[] bytes = new byte[buffer];
             int read = 0;
             bis.skip(44L);
-            while ((read = bis.read(bytes, 0, 2)) != -1) {
+            while ((read = bis.read(bytes, 0, buffer)) != -1) {
                 if (read == 2) {
                     final int current = bytes[0] & 0xFF | bytes[1] << 8;
                     if (current != 0) {
