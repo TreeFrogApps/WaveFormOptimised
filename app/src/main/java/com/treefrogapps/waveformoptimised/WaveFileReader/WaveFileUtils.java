@@ -49,7 +49,7 @@ final class WaveFileUtils {
             fis.skip(16L);
             final int read = fis.read(headerCheck, 0, bytes);
             if (read == bytes) {
-                return (headerCheck[0] | (headerCheck[1] & 0xFF) << 8 | (headerCheck[2] & 0xFF) << 16 | (headerCheck[3] & 0xFF) << 24) == 16 ? 44 : 46;
+                return ((headerCheck[0] & 0xFF) | (headerCheck[1] & 0xFF) << 8 | (headerCheck[2] & 0xFF) << 16 | headerCheck[3] << 24) == 16 ? 44 : 46;
             }
         } catch (IOException e) {
             e.printStackTrace();

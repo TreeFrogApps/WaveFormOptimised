@@ -25,6 +25,8 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
     private int xOffset;
     private Paint paint;
     private Path path;
+    private int height;
+    private int width;
 
     public WaveView(Context context, @Nullable WaveFile waveFile) {
         super(context);
@@ -33,11 +35,13 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
         this.wavefile = waveFile;
         getHolder().addCallback(this);
         setWillNotDraw(false);
-        paint = new Paint();
+        paint = setPaintParams();
         path = new Path();
     }
 
     @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        this.width = w;
+        this.height = h;
         super.onSizeChanged(w, h, oldw, oldh);
     }
 
@@ -46,28 +50,27 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        startDrawingWavFile(this.wavefile);
+        startDrawingWavFile(wavefile);
     }
 
     @Override public void surfaceDestroyed(SurfaceHolder holder) {
         if (disposable != null && !disposable.isDisposed()) {
             disposable.dispose();
         }
+        holder.removeCallback(this);
     }
 
     void startDrawingWavFile(WaveFile wavefile) {
         if (wavefile != null) {
             final Canvas canvas = holder.lockCanvas(null);
-            setPaintParams(paint);
-            Log.e(getClass().getSimpleName(), " " + canvas.getWidth() + " , " + canvas.getHeight());
-            disposable = wavefile.getAmplitudes(canvas.getWidth()).observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(val -> onNext(val, canvas), this::onError, () -> onComplete(canvas));
+            disposable = wavefile.getAmplitudes(width).observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(this::onNext, this::onError, () -> onComplete(canvas));
         }
     }
 
-    private void onNext(Float val, Canvas canvas) {
-        final float amplitude = normaliseAmplitude(val, canvas.getHeight());
-        addLinePoint(path, amplitude, canvas.getHeight(), xOffset);
+    private void onNext(Float val) {
+        final float amplitude = normaliseAmplitude(val, height);
+        addLinePoint(path, amplitude, height, xOffset);
         xOffset++;
     }
 
@@ -86,21 +89,24 @@ public class WaveView extends SurfaceView implements SurfaceHolder.Callback {
         return val * (y / 2);
     }
 
-    private void setPaintParams(Paint paint) {
-        paint.setColor(Color.BLUE);
+    private Paint setPaintParams() {
+        Paint paint = new Paint();
+        paint.setColor(Color.GREEN);
         paint.setStrokeWidth(2.0f);
         paint.setDither(true);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeJoin(Paint.Join.ROUND);
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setPathEffect(new CornerPathEffect(10));
-        paint.setAntiAlias(true);
+        paint.setAntiAlias(false);
+        return paint;
     }
 
     private void addLinePoint(Path path, float amplitude, int height, int xOffset) {
         final float yOffset = (height / 2);
+        if(xOffset == 0){
+            path.moveTo((float) xOffset, yOffset);
+        }
         path.lineTo((float) xOffset, yOffset - amplitude);
-        path.moveTo((float) xOffset, yOffset - amplitude);
     }
-
 }

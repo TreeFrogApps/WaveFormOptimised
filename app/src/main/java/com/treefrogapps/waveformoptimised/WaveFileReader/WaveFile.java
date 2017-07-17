@@ -18,7 +18,7 @@ public class WaveFile {
 
     private static final String TAG = WaveFile.class.getSimpleName();
 
-    public enum Channels {
+    private enum Channels {
         MONO, STEREO, UNKNOWN
     }
 
@@ -40,27 +40,27 @@ public class WaveFile {
                 "\nHeader Size : \t\t" + getHeaderSize(header));
     }
 
-    public String getFormat() {
+    private String getFormat() {
         return ((header[20] & 0xff) | header[21] << 8) == 1 ? "PCM" : "UNKNOWN";
     }
 
     // header 24-27 - 4 bytes : little endian
-    public int getSampleRate() {
+    private int getSampleRate() {
         return (header[24] & 0xff) | (header[25] & 0xff) << 8 | (header[26] & 0xff) << 16 | header[27] << 24;
     }
 
     // header 28-31 - 4 bytes : little endian
-    public int getBytesPerSecond() {
+    private int getBytesPerSecond() {
         return (header[28] & 0xFF) | (header[29] & 0xff) << 8 | (header[30] & 0xff) << 16 | header[31] << 24;
     }
 
     // header 34-35 - 2 bytes : little endian
-    public int getBitRate() {
+    private int getBitRate() {
         return header[34] | header[35] << 8;
     }
 
     // header 22-23 - 2 bytes : little endian
-    public Channels getChannels() {
+    private Channels getChannels() {
         switch ((header[22] & 0xff) | header[23] << 8) {
             case 1:
                 return Channels.MONO;
@@ -72,18 +72,20 @@ public class WaveFile {
     }
 
     // header 40-43 data size : little endian
-    public int getDataSize() {
+    private int getDataSize() {
         return (header[40] & 0xff) | (header[41] & 0xff) << 8 | (header[42] & 0xff) << 16 | header[43] << 24;
     }
 
-    public int getRecordingLength() {
+    private int getRecordingLength() {
         return getDataSize() / getBytesPerSecond();
     }
 
+    // based upon 8000hz 16-bit PCM Mono
     @SuppressWarnings("ResultOfMethodCallIgnored") Observable<Float> getAmplitudes(int width) {
         return Observable.defer(() -> Observable.create((ObservableOnSubscribe<Float>) e -> {
             final BufferedInputStream bis = new BufferedInputStream(new FileInputStream(waveFile));
-            final long skipCount = getDataSize() / width;
+            int skipCount = getDataSize() / width;
+            if (skipCount % 2 != 0) skipCount++;
             final int buffer = 2;
             final byte[] bytes = new byte[buffer];
             int read = 0;
@@ -93,6 +95,7 @@ public class WaveFile {
                     final int current = bytes[0] & 0xFF | bytes[1] << 8;
                     if (current != 0) {
                         final float normalised = current / 32768f;
+                        if (normalised > 0.5) Log.e(TAG, " " + normalised);
                         e.onNext(normalised);
                     } else {
                         e.onNext(0.0f);
